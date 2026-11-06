@@ -1,0 +1,40 @@
+{
+  "projects": [
+    {
+      "id": 1,
+      "name": "Acme Corp",
+      "description": "Backend engineer role",
+      "projectStatusId": 2
+    }
+  ],
+  "projectStatuses": [
+    { "id": 1, "name": "no response" },
+    { "id": 2, "name": "first contact" },
+    { "id": 3, "name": "interviewed" },
+    { "id": 4, "name": "offer" },
+    { "id": 5, "name": "rejected" }
+  ],
+  "projectStatusLogs": [
+    {
+      "id": 1,
+      "loggedAt": "2026-11-01T09:00:00Z",
+      "projectId": 1,
+      "projectStatusId": 1,
+      "notes": "Applied through referral"
+    },
+    {
+      "id": 2,
+      "loggedAt": "2026-11-04T14:30:00Z",
+      "projectId": 1,
+      "projectStatusId": 2,
+      "notes": "Recruiter reached out to schedule a call"
+    }
+  ],
+  "projectStatusConfigurations": [
+    { "projectId": 1, "projectStatusId": 1 },
+    { "projectId": 1, "projectStatusId": 2 },
+    { "projectId": 1, "projectStatusId": 3 },
+    { "projectId": 1, "projectStatusId": 4 },
+    { "projectId": 1, "projectStatusId": 5 }
+  ]
+}

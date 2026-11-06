@@ -1,0 +1,9 @@
+{
+  "name": "Job Tracker",
+  "short_name": "Job Tracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eae7e0",
+  "theme_color": "#f05500",
+  "icons": []
+}

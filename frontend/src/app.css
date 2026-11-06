@@ -1,0 +1,102 @@
+/*
+ * Tokens and the reusable component layer live in ../theme (the tempo-theme
+ * submodule). Only pocoapoco-specific layout additions go here, layered on
+ * top — same split tempo-app itself uses between theme/ and its own
+ * global.css, so both apps read as the same visual system.
+ */
+@import '../theme/tokens.css';
+@import '../theme/components.css';
+
+html, body, #app {
+  height: 100%;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.25rem 4rem 0;
+}
+
+.logoMark {
+  font-size: 1.2rem;
+  color: var(--accent);
+}
+
+.logoText {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 2rem 4rem;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.count {
+  font-size: 0.8rem;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+}
+
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  margin: 0;
+}
+
+.cardMain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.projectName {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.empty {
+  display: flex;
+  justify-content: center;
+  padding: 3rem 1rem;
+  color: var(--text-faint);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  .topBar {
+    padding: calc(0.625rem + env(safe-area-inset-top)) 1rem 0.625rem;
+  }
+
+  .page {
+    padding: 1rem;
+    gap: 1rem;
+  }
+}

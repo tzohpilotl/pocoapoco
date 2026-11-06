@@ -1,0 +1,56 @@
+#+TITLE: Job Tracker — Frontend
+
+Mithril SPA, installable as a PWA. See [[file:../DESIGN.org][DESIGN.org]] for product/architecture context.
+
+* Setup
+
+#+BEGIN_SRC sh
+npm install
+git submodule update --init --remote frontend/theme  # first time only
+#+END_SRC
+
+=frontend/theme= is a git submodule tracking the [[https://github.com/tzohpilotl/tempo-theme][tempo-theme]] repo. Pull upstream changes with:
+
+#+BEGIN_SRC sh
+git submodule update --remote frontend/theme
+#+END_SRC
+
+* Running in development
+
+#+BEGIN_SRC sh
+npm run mock-api   # json-server on http://localhost:4000, seeded from mock/db.json
+npm run dev        # esbuild dev server on http://localhost:5174, rebuilds on save
+#+END_SRC
+
+Open http://localhost:5174/ in a browser. There is no real Tracking Service yet (see
+DESIGN.org), so =npm run mock-api= stands in for it against the shapes in [[*Data Model][Data Model]].
+
+* Environment variables
+
+Endpoints are configured via =.env.<mode>= files, loaded by =scripts/build.mjs= and injected
+into the bundle at build time (via esbuild's =define=, so there is no =process.env= at runtime
+in the browser — references are replaced with literal values during the build).
+
+| File              | Used by      | =API_BASE_URL=                                  |
+|-------------------+---------------+--------------------------------------------------|
+| =.env.development= | =npm run dev=  | =http://localhost:4000= (the json-server mock)    |
+| =.env.production=  | =npm run build= | placeholder — no hosting target chosen yet       |
+
+=.env.production='s =API_BASE_URL= is a placeholder until the Tracking Service has a real
+deployed URL (see DESIGN.org, Open Questions: "Hosting target"). Update it then.
+
+To add a new variable: add it to both =.env.development= and =.env.production=, then add a
+matching =define= entry in =scripts/build.mjs=, then read it from =src/config.js=.
+
+* Building for production
+
+#+BEGIN_SRC sh
+npm run build   # outputs dist/app.js, minified, using .env.production
+#+END_SRC
+
+* Ports used in dev
+
+Chosen to avoid colliding with other local projects' dev servers:
+
+- =5174= — this app's esbuild dev server (not =5173=, used by =tempo-app=).
+- =4000= — the json-server mock (not =3001=, used by another local project).

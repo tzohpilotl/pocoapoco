@@ -1,0 +1,248 @@
+#+TITLE: Design
+
+* Purpose
+This is a document that describes the Job Tracker app from the product perspective. Its roadmap
+works as a backlog because it holds the action items identified by the product owner; it works as a
+tracker because its action items are toggleable todo items that should be marked as DONE when they
+get implemented; and it works as a spec because the tests should prove the software satisfies the
+requirements expressed in the [[*Features Overview][Features Overview]] and [[*Roadmap][Roadmap]].
+
+This is the single source of truth for product work and specification. Roadmap items are epics:
+they only flip from TODO to DONE in place once fully delivered, and are never moved out of the
+Roadmap. Features Overview maps forward to the Roadmap epic(s) that deliver each feature.
+
+Originally derived from a now-deleted =job-tracker-app.excalidraw= sketch (functional requirements,
+data model, and architecture), with ambiguities resolved via clarification rather than assumption —
+see [[*Open Questions][Open Questions]] for what's still explicitly undecided. This document is the living source of
+truth going forward; the =.excalidraw= file was a one-time kickoff artifact, not something kept in
+sync after the first draft. The one exception is the architecture diagram: it stays editable as
+=architecture.mmd=, rendered to =architecture.png= for the [[*Architecture Overview][Architecture Overview]] section below, and
+can be round-tripped through Excalidraw's mermaid-import when it needs visual editing — re-export,
+re-extract, discard the =.excalidraw= again.
+
+Non-functional qualities (availability, backups, scaling, etc.) are assumed covered by whichever
+infra-as-a-service platform this ends up deployed to, and are only called out per-component below
+when something specific is actually known.
+
+* Features Overview
+The epics in the roadmap should map to these features.
+
+** TODO Track projects
+Create and list projects being tracked. Delivered by [[*Track projects][Track projects]].
+
+** TODO Configurable status sets per project
+Select =n= (0 < n <= 5) statuses that apply to a given project, out of the overall status catalog.
+Delivered by [[*Configurable status sets per project][Configurable status sets per project]].
+
+** TODO Update and log project status
+Change a project's current status, with the change recorded in a history log (including a note).
+Delivered by [[*Update and log project status][Update and log project status]].
+
+** TODO View project history
+See the history of status changes for a project. Delivered by [[*Update and log project status][Update and log project status]].
+
+** TODO Project templates
+Save a named, reusable bundle of statuses (e.g. "Job Application": no response / first contact /
+interviewed / offer / rejected) so creating a new project of the same kind doesn't require
+reselecting its statuses from scratch. Delivered by [[*Project templates][Project templates]].
+
+** TODO Alarms and notifications
+Configure an alarm on a project that triggers a notification carrying some text. Delivered by
+[[*Alarms and notifications][Alarms and notifications]].
+
+
+* Roadmap
+
+Open (TODO) items are listed first, in priority order, highest priority first. Completed (DONE)
+items are kept at the end of the list, in descending order by the date of their last TODO to DONE
+transition, rather than mixed in with what's still open.
+
+** TODO Track projects
+:PROPERTIES:
+:CREATED: [2026-11-05 Wed]
+:END:
+Delivers [[*Track projects][Track projects]]. Basic create/list capability for projects — =name=, =description=, and a
+current status (=projectStatusId=). Foundational epic everything else below builds on.
+
+** TODO Configurable status sets per project
+:PROPERTIES:
+:CREATED: [2026-11-05 Wed]
+:END:
+Delivers [[*Configurable status sets per project][Configurable status sets per project]]. Each project selects up to 5 statuses from the
+overall =Project Status= catalog — the =ProjectStatusConfiguration= table (see [[*Data Model][Data Model]]) records
+that selection as one row per (project, status) pair.
+
+** TODO Update and log project status
+:PROPERTIES:
+:CREATED: [2026-11-05 Wed]
+:END:
+Delivers [[*Update and log project status][Update and log project status]] and [[*View project history][View project history]]. Changing a project's current
+status writes a row to =Project Status Log= (who/when/what), which is also what powers the history
+view. The functional requirement to "add notes to the project change of state" implies a notes/text
+field on this log that isn't in the original diagram — see [[*Open Questions][Open Questions]].
+
+** TODO Project templates
+:PROPERTIES:
+:CREATED: [2026-11-05 Wed]
+:END:
+Delivers [[*Project templates][Project templates]]. A named, reusable status-set bundle (e.g. "Job Application") applied when
+creating a new project, instead of re-selecting the same statuses every time. The underlying schema
+for this isn't in the original diagram at all — see [[*Open Questions][Open Questions]] for the shape this likely needs
+(something like a =ProjectTemplate= entity plus its own status-set rows, applied by copying into a
+new project's =ProjectStatusConfiguration= at creation time).
+
+** TODO Alarms and notifications
+:PROPERTIES:
+:CREATED: [2026-11-05 Wed]
+:END:
+Delivers [[*Alarms and notifications][Alarms and notifications]]. Configure an alarm on a project that triggers a notification
+carrying some text. Delivery is a dedicated =Notification Service= (see [[*Architecture Overview][Architecture Overview]]) running
+on a schedule (e.g. once a morning) that reads due alarms straight from Tracking DB and delivers to
+the client directly — deliberately bypassing Tracking Service on both sides. The actual delivery
+channel (push/email/in-app/other) is still open — see [[*Open Questions][Open Questions]].
+
+** TODO Set up Postgres with a migration-based workflow                :infra:
+:PROPERTIES:
+:CREATED: [2026-11-05 Wed]
+:END:
+Tracking DB is Postgres (see [[*Tech Stack][Tech Stack]]), with schema changes going through a migration tool
+from day one rather than hand-editing the schema — the project expects real schema churn during
+early development as the data model above settles.
+
+** TODO Containerize and deploy the Tracking Service                   :infra:
+:PROPERTIES:
+:CREATED: [2026-11-05 Wed]
+:END:
+Tracking Service runs as a containerized web server (see [[*Tech Stack][Tech Stack]]). Covers building the
+container image and getting it deployed — concrete steps TBD, see [[*Deployment][Deployment]].
+
+** TODO Set up scheduled-job infrastructure for the Notification Service :infra:
+:PROPERTIES:
+:CREATED: [2026-11-05 Wed]
+:END:
+Delivers the infra side of [[*Alarms and notifications][Alarms and notifications]]. The Notification Service runs as a scheduled
+job (cron-like, e.g. once a morning) rather than a long-running request-serving process — needs a
+deploy target that supports scheduled tasks, separate from (but able to reach) Tracking DB.
+
+
+* Architecture Overview
+
+Four components. Arrow direction reflects the direction data flows, not necessarily "who calls
+whom" — the Client/Tracking Service relationship is a two-way request/response over the API even
+though it's drawn as one arrow (Excalidraw has no easy bidirectional-arrow tool); the Notification
+Service's two arrows are genuinely one-directional reads/deliveries, not round trips.
+
+[[file:architecture.png]]
+
+Source: =architecture.mmd= (regenerate the PNG after editing it: =mmdc -i architecture.mmd -o
+architecture.png=).
+
+- *Client* — a web client (browser). Other client types (mobile, desktop) may be added later; see
+  [[*Tech Stack][Tech Stack]].
+- *Tracking Service* — a containerized web server. Exposes the API below; owns all reads/writes to
+  Tracking DB. Language/framework not yet chosen (see [[*Tech Stack][Tech Stack]]).
+- *Tracking DB* — Postgres. Holds the entities in [[*Data Model][Data Model]].
+- *Notification Service* — runs on a schedule (e.g. once a morning, cron-like) rather than serving
+  requests. Reads due alarms directly from Tracking DB and delivers notifications directly to the
+  Client — deliberately decoupled from Tracking Service on both sides, not an oversight. The actual
+  delivery channel (push/email/in-app) is still open — see [[*Open Questions][Open Questions]].
+
+** API (high level)
+Described at a high level only, per the source diagram — not meant as a full contract yet.
+
+- ~POST /events/track~ — =trackProject()=: start tracking a new project.
+- ~PATCH /events/:eventId/status~ — =updateProjectStatus()=: update a project's current status.
+  Body: ~{ status: "state1" | "state2" | "state3" }~ (illustrative in the source — real status
+  values come from the =Project Status= catalog, not a fixed enum).
+
+
+* Data Model
+
+#+BEGIN_SRC sql
+Project
+----------
+id
+name
+description
+projectStatusId (fk -> Project Status.id)
+
+Project Status
+-------
+id
+name
+
+Project Status Log
+-------
+logged_at
+projectId (fk -> Project.id)
+projectStatusId (fk -> Project Status.id)
+-- notes/comment field needed (see Open Questions) — not in the original diagram
+
+ProjectStatusConfiguration
+-------
+projectId (fk -> Project.id)
+projectStatusId (fk -> Project Status.id)
+(projectId, projectStatusId) (pk)
+#+END_SRC
+
+=ProjectStatusConfiguration= was named =Project Config=/=Project Configuration= inconsistently in
+the source diagram (the entity index said one thing, the table itself said another) — renamed to
+this single canonical name per clarification.
+
+=Project Templates= (the feature) has no corresponding entity above yet — it wasn't drawn in the
+source diagram at all. See [[*Open Questions][Open Questions]].
+
+
+* Tech Stack
+
+- *Tracking DB: Postgres.* Chosen with a migration-based workflow in mind from the start, since the
+  data model above is expected to keep changing during early development (e.g. once the Project
+  Templates schema gap below gets resolved). Specific migration tool not yet chosen.
+- *Tracking Service: a containerized web server.* The source diagram abstracts this as "a service"
+  rather than naming a language/framework — kept abstract here too rather than guessing one.
+  Whatever it ends up being, it's expected to run as a container (see [[*Containerize and deploy the Tracking Service][Containerize and deploy the
+  Tracking Service]]).
+- *Notification Service: a scheduled job, not a request-serving service.* Same "abstract until
+  named" treatment as Tracking Service for language/framework — the one settled property is that it
+  runs on a schedule (cron-like) and reaches Tracking DB directly rather than through Tracking
+  Service. See [[*Set up scheduled-job infrastructure for the Notification Service][Set up scheduled-job infrastructure for the Notification Service]].
+- *Client: web (browser), built as an installable PWA.* An SPA using [[https://mithril.js.org/][Mithril]] — chosen for being
+  lightweight and close to vanilla JS rather than a heavier component framework. Installable (manifest +
+  service worker) so it can be added to the home screen on iOS/Android instead of shipping separate
+  native clients.
+
+
+* Deployment
+
+Not yet written — no concrete hosting target has been chosen yet (see [[*Open Questions][Open Questions]]). Once Tech
+Stack's open points settle, this section should cover: local dev setup, environment/config,
+container build, and the actual deploy steps/target.
+
+
+* Open Questions
+
+- *Notification delivery channel.* The Notification Service's existence, trigger mechanism (a
+  scheduled job reading Tracking DB directly), and decoupling from Tracking Service are settled —
+  see [[*Architecture Overview][Architecture Overview]]. What's still open is the actual delivery channel to the client (push,
+  email, in-app, something else). If the Client ends up being an installable PWA (see [[*Client
+  specificity][Client specificity]]), push on iOS specifically constrains this: push only works for a PWA
+  installed via "Add to Home Screen" (not in a regular Safari tab), requires iOS/iPadOS 16.4+, and
+  the permission prompt can only be triggered by a user gesture post-install. Delivery itself would
+  be Web Push (VAPID-signed) against per-device push subscriptions rather than a single "deliver to
+  the client" call, which means a push-subscription table (per device, not yet in [[*Data
+  Model][Data Model]]) and tolerance for stale/rotated subscriptions, since Safari's
+  =pushsubscriptionchange= handling has been unreliable historically. Android/Chrome has none of
+  these restrictions.
+- *Project Templates schema.* The feature (save a named, reusable status-set bundle — e.g. a "Job
+  Application" template with statuses no response / first contact / interviewed / offer / rejected
+  — so new projects of the same kind don't need re-selecting statuses) has no entity in the source
+  diagram. Likely shape: a =ProjectTemplate= entity (id, name) plus its own status-set rows
+  (mirroring =ProjectStatusConfiguration=), copied into a new project's =ProjectStatusConfiguration=
+  at creation time — not yet confirmed.
+- *Project Status Log notes field.* "Add notes to the project change of state" implies a text field
+  on =Project Status Log= that isn't in the source diagram's table definition. Assumed needed, not
+  yet named/typed.
+- *Client specificity.* Settled as an installable PWA (Mithril SPA) — see [[*Tech Stack][Tech Stack]]. Dedicated
+  native mobile/desktop clients are not planned; the installable PWA is the mobile delivery
+  mechanism.
+- *Hosting target.* No deployment platform chosen yet — blocks writing a real [[*Deployment][Deployment]] section.

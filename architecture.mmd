@@ -1,0 +1,5 @@
+flowchart LR
+    Client <-->|trackProject, updateProjectStatus| TrackingService[Tracking Service]
+    TrackingService --> TrackingDB[(Tracking DB)]
+    TrackingDB --> NotificationService[Notification Service]
+    NotificationService --> Client
