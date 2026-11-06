@@ -7,7 +7,9 @@
     "dev": "node scripts/build.mjs --serve",
     "build": "node scripts/build.mjs --production",
     "mock-api": "json-server --port 4000 mock/db.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging"
   },
   "dependencies": {
     "mithril": "^2.2.2"
@@ -16,6 +18,7 @@
     "dotenv": "^16.4.5",
     "esbuild": "^0.24.0",
     "json-server": "^1.0.0-beta.15",
-    "vitest": "^2.1.4"
+    "vitest": "^2.1.4",
+    "wrangler": "^3.90.0"
   }
 }

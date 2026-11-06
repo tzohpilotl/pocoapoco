@@ -1,0 +1,22 @@
+# Local dev only — spins up Postgres for `npm run dev` against. Not used in
+# CI or production (see DESIGN.org, Deployment: Tracking Service hosting is
+# still an open question).
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tracking_service
+      POSTGRES_PASSWORD: tracking_service
+      POSTGRES_DB: tracking_service
+    ports:
+      - "5432:5432"
+    volumes:
+      - tracking_service_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracking_service"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  tracking_service_dev_data:

@@ -4,8 +4,8 @@
  * top — same split tempo-app itself uses between theme/ and its own
  * global.css, so both apps read as the same visual system.
  */
-@import '../theme/tokens.css';
-@import '../theme/components.css';
+@import '/theme/tokens.css';
+@import '/theme/components.css';
 
 html, body, #app {
   height: 100%;

@@ -50,6 +50,9 @@ reselecting its statuses from scratch. Delivered by [[*Project templates][Projec
 Configure an alarm on a project that triggers a notification carrying some text. Delivered by
 [[*Alarms and notifications][Alarms and notifications]].
 
+** TODO User accounts
+Sign in with Google; projects belong to the signed-in user. Delivered by [[*User accounts][User accounts]].
+
 
 * Roadmap
 
@@ -57,12 +60,24 @@ Open (TODO) items are listed first, in priority order, highest priority first. C
 items are kept at the end of the list, in descending order by the date of their last TODO to DONE
 transition, rather than mixed in with what's still open.
 
+** TODO User accounts
+:PROPERTIES:
+:CREATED: [2026-11-05 Wed]
+:END:
+Delivers [[*User accounts][User accounts]]. Sign in with Google (Passport + =passport-google-oauth20=, session-based —
+same approach as =tempo-app=, see [[*Tech Stack][Tech Stack]]), and every =Project= belongs to the signed-in
+=User= (see [[*Data Model][Data Model]]). This is foundational, same as [[*Track projects][Track projects]] below — projects can't be
+scoped to a user until this exists. Identity is keyed on the Google account (not an app-local
+username/password) since pocoapoco-app, =tempo-app=, and the loyalty app belong to one suite that
+may eventually share user identity — see [[*Future shared identity across the suite][Future shared identity across the suite]].
+
 ** TODO Track projects
 :PROPERTIES:
 :CREATED: [2026-11-05 Wed]
 :END:
 Delivers [[*Track projects][Track projects]]. Basic create/list capability for projects — =name=, =description=, and a
-current status (=projectStatusId=). Foundational epic everything else below builds on.
+current status (=projectStatusId=), scoped to the signed-in user (see [[*User accounts][User accounts]]). Foundational
+epic everything else below builds on.
 
 ** TODO Configurable status sets per project
 :PROPERTIES:
@@ -139,8 +154,8 @@ architecture.png=).
 
 - *Client* — a web client (browser). Other client types (mobile, desktop) may be added later; see
   [[*Tech Stack][Tech Stack]].
-- *Tracking Service* — a containerized web server. Exposes the API below; owns all reads/writes to
-  Tracking DB. Language/framework not yet chosen (see [[*Tech Stack][Tech Stack]]).
+- *Tracking Service* — a containerized NestJS (Express) web server. Exposes the API below; owns all
+  reads/writes to Tracking DB. See [[*Tech Stack][Tech Stack]].
 - *Tracking DB* — Postgres. Holds the entities in [[*Data Model][Data Model]].
 - *Notification Service* — runs on a schedule (e.g. once a morning, cron-like) rather than serving
   requests. Reads due alarms directly from Tracking DB and delivers notifications directly to the
@@ -148,20 +163,35 @@ architecture.png=).
   delivery channel (push/email/in-app) is still open — see [[*Open Questions][Open Questions]].
 
 ** API (high level)
-Described at a high level only, per the source diagram — not meant as a full contract yet.
+The source diagram's =POST /events/track= / =PATCH /events/:eventId/status= (=trackProject()=/
+=updateProjectStatus()=) were illustrative, named after "event" rather than the =Project= entity
+the Data Model actually settled on. Scaffolding the Tracking Service translates them to the real
+entity naming below — still not a full contract (no request/response bodies specified yet beyond
+what's implied by [[*Data Model][Data Model]]).
 
-- ~POST /events/track~ — =trackProject()=: start tracking a new project.
-- ~PATCH /events/:eventId/status~ — =updateProjectStatus()=: update a project's current status.
-  Body: ~{ status: "state1" | "state2" | "state3" }~ (illustrative in the source — real status
-  values come from the =Project Status= catalog, not a fixed enum).
+- ~POST /projects~ — create a project and start tracking it (=name=, =description=,
+  =projectStatusId=), scoped to the signed-in user.
+- ~PATCH /projects/:id/status~ — update a project's current status. Body: =projectStatusId= (fk
+  into the =Project Status= catalog, not a fixed enum) plus the optional notes field for
+  =Project Status Log= (see [[*Open Questions][Open Questions]]). Writes a =Project Status Log= row as a side effect.
+- All routes require a signed-in user (see [[*User accounts][User accounts]]); =Project= rows are scoped to
+  =userId=.
 
 
 * Data Model
 
 #+BEGIN_SRC sql
+User
+----------
+id
+googleId  -- Google account's stable subject id ("sub"); the durable identifier, not an
+          -- app-local username/password — see Open Questions, Future shared identity
+email
+
 Project
 ----------
 id
+userId (fk -> User.id)
 name
 description
 projectStatusId (fk -> Project Status.id)
@@ -198,10 +228,13 @@ source diagram at all. See [[*Open Questions][Open Questions]].
 - *Tracking DB: Postgres.* Chosen with a migration-based workflow in mind from the start, since the
   data model above is expected to keep changing during early development (e.g. once the Project
   Templates schema gap below gets resolved). Specific migration tool not yet chosen.
-- *Tracking Service: a containerized web server.* The source diagram abstracts this as "a service"
-  rather than naming a language/framework — kept abstract here too rather than guessing one.
-  Whatever it ends up being, it's expected to run as a container (see [[*Containerize and deploy the Tracking Service][Containerize and deploy the
-  Tracking Service]]).
+- *Tracking Service: NestJS (Express) + TypeORM, targeting Postgres.* Same stack as =tempo-app='s
+  backend — NestJS/Express/TypeORM/=class-validator=/Passport (Google OAuth, session-based) —
+  except the DB driver, since Tracking DB is Postgres rather than SQLite; TypeORM supports Postgres
+  natively and has a real migration CLI, which fits the migration-based workflow above directly.
+  Reusing =tempo-app='s stack is deliberate, not incidental: same owner, same intended suite (see
+  [[*Future shared identity across the suite][Future shared identity across the suite]]). Runs as a container (see [[*Containerize and deploy the
+  Tracking Service][Containerize and deploy the Tracking Service]]).
 - *Notification Service: a scheduled job, not a request-serving service.* Same "abstract until
   named" treatment as Tracking Service for language/framework — the one settled property is that it
   runs on a schedule (cron-like) and reaches Tracking DB directly rather than through Tracking
@@ -214,9 +247,70 @@ source diagram at all. See [[*Open Questions][Open Questions]].
 
 * Deployment
 
-Not yet written — no concrete hosting target has been chosen yet (see [[*Open Questions][Open Questions]]). Once Tech
-Stack's open points settle, this section should cover: local dev setup, environment/config,
-container build, and the actual deploy steps/target.
+This section covers the design/rationale; see [[file:DEPLOYMENT.md][DEPLOYMENT.md]] for the step-by-step operational
+guide (account setup, secrets, first deploy, ongoing operations, backups) — same split as
+=tempo-app='s =DESIGN= doc vs. its own =DEPLOYMENT.md=.
+
+** Client
+Deployed as static assets to [[https://developers.cloudflare.com/workers/static-assets/][Cloudflare Workers Static Assets]] — no server, container, or
+VPS for the frontend. =frontend/wrangler.toml= configures a default (production) and an
+=[env.staging]= environment, both serving =frontend/dist= with SPA fallback
+(=not_found_handling = "single-page-application"=) so client-side routing works on refresh/deep
+link.
+
+=frontend/dist= is assembled by =frontend/scripts/build.mjs= as a complete, self-contained site
+root — =index.html=, the PWA manifest, service worker, theme CSS (from the =frontend/theme=
+submodule), and the bundled JS all sit flat under =dist/= — rather than just the JS bundle, since
+that's what Wrangler publishes directly. The dev server (=npm run dev=) serves from the same
+=dist/= layout, so local dev matches what ships.
+
+Deploy is via GitHub Actions (=.github/workflows/deploy.yml= for =main= → production,
+=deploy-staging.yml= for =staging= → staging): checkout (with submodules, for =frontend/theme=),
+=npm ci=, =npm test=, =npm run build= (=API_BASE_URL=/=API_BASE_URL_STAGING= injected from repo
+secrets — see [[*Environment variables][Environment variables]] below), then
+=cloudflare/wrangler-action@v3= to publish. Modeled on the =loyalty-app-web= repo's deploy setup,
+adapted for this repo's =frontend/= subdirectory layout and esbuild (rather than Vite) build.
+
+Not yet set up: the actual Cloudflare account/API token, repo secrets, and pushing this repo to
+GitHub — these block the pipeline from running for real, independent of the config being correct.
+
+*** Environment variables
+=API_BASE_URL= is injected at build time (see [[*Tech Stack][Tech Stack]] — =frontend/scripts/build.mjs= loads it
+via =dotenv= from =.env.development=/=.env.production= locally, or from a real =API_BASE_URL=
+environment variable in CI, which takes precedence over the =.env= file). =.env.production='s
+value is currently a placeholder — see [[*Hosting target][Hosting target]] below, since the Tracking Service isn't
+deployed anywhere yet.
+
+** Tracking Service / Tracking DB
+Deploy mechanism is prepared, deliberately matching =tempo-app='s shape as closely as possible
+(single environment, =:latest= image tag, =git pull= + =docker compose pull/up= on the server
+rather than per-commit tags + file copying, decoupled test-then-deploy via =workflow_run=) since
+both belong to the same suite — see [[*Future shared identity across the suite][Future shared identity across the suite]]. Postgres instead of
+SQLite (plus the migration step that requires) is the one deliberate divergence; see [[*Tech Stack][Tech Stack]].
+*The actual server is not provisioned yet*, so none of this can run for real — see [[*Hosting
+target][Hosting target]] in Open Questions; the client's =API_BASE_URL= can't be set to anything
+real until that's resolved.
+
+=backend/compose.yaml= defines an =app= + =db= (Postgres) pair, joining the shared external
+=droplet_proxy_network= — same external-network pattern =tempo-app= and =loyalty-app-api= already
+use to share one droplet behind one Caddy instance. =backend/compose.dev.yaml= is a separate,
+local-dev-only file (Postgres only, no app container); Docker Compose would otherwise silently
+prefer a file named =compose.yaml= over it, which is why the dev one is explicitly suffixed rather
+than left as the ambiguous default =docker-compose.yml= name.
+
+=.github/workflows/backend-tests.yml= (push/PR to =main=, scoped to =backend/**=) runs the test
+suite standalone, decoupled from deploy — same split as =tempo-app='s =e2e.yml=/=deploy.yml=.
+=backend-deploy.yml= triggers via =workflow_run= once that succeeds (or manually via
+=workflow_dispatch=): build+push a =:latest= image to GHCR, then SSH in and =git pull && docker
+compose pull && up -d --remove-orphans=, same as =tempo-app='s =deploy.yml=. The one addition
+=tempo-app= doesn't have is a migration step after =up= (=npm run migration:run:prod=, compiled-JS
+TypeORM CLI — the =ts-node=-based =migration:run= used locally isn't available in the production
+image, which only installs production dependencies) — kept deliberately as the template for
+=tempo-app='s own eventual SQLite-to-Postgres migration, even though =tempo-app= doesn't need it
+yet itself.
+
+** Notification Service
+Not yet written — no hosting target chosen (see [[*Hosting target][Hosting target]] in Open Questions).
 
 
 * Open Questions
@@ -245,4 +339,11 @@ container build, and the actual deploy steps/target.
 - *Client specificity.* Settled as an installable PWA (Mithril SPA) — see [[*Tech Stack][Tech Stack]]. Dedicated
   native mobile/desktop clients are not planned; the installable PWA is the mobile delivery
   mechanism.
-- *Hosting target.* No deployment platform chosen yet — blocks writing a real [[*Deployment][Deployment]] section.
+- *Hosting target.* Settled for the Client: Cloudflare Workers Static Assets (see [[*Deployment][Deployment]]).
+  Still open for Tracking Service, Tracking DB, and Notification Service — nothing chosen yet, which
+  also blocks the Client's =API_BASE_URL= from pointing at anything real in production.
+- *Future shared identity across the suite.* pocoapoco-app, =tempo-app=, and the loyalty app belong
+  to one suite (same owner) that may eventually share user accounts rather than each having fully
+  independent ones. Not being built now, but it shapes the =User= entity above: =googleId= (the
+  Google account's stable subject id) is the durable identifier, not an app-local auto-increment
+  username/password scheme that would need migrating later if identity does get unified.

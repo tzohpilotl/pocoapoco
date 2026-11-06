@@ -1,8 +1,8 @@
 const CACHE = "job-tracker-shell-v1";
 const SHELL = [
   "/",
-  "/dist/app.js",
-  "/src/app.css",
+  "/app.js",
+  "/app.css",
   "/theme/tokens.css",
   "/theme/components.css",
   "/manifest.json",

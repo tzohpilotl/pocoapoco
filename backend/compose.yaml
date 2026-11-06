@@ -1,0 +1,51 @@
+# Production. Modeled on tempo-app's root docker-compose.yml — single
+# environment, `:latest` image tag, deploy via `git pull` + `docker compose
+# pull/up` on the server rather than per-commit tags + scp (see
+# .github/workflows/backend-deploy.yml). Postgres instead of SQLite is the
+# one deliberate divergence (see DESIGN.org, Tech Stack).
+services:
+  app:
+    image: 'ghcr.io/${GITHUB_USERNAME}/pocoapoco-tracking-service:latest'
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: ".env"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      default:
+      droplet_proxy_network:
+        aliases:
+          - tracking-service
+
+  db:
+    image: postgres:16-alpine
+    env_file: ".env"
+    environment:
+      POSTGRES_USER: '${DB_USER}'
+      POSTGRES_PASSWORD: '${DB_PASSWORD}'
+      POSTGRES_DB: '${DB_NAME}'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - default
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    name: tracking_service_postgres_data
+    driver: local
+
+networks:
+  default: {}
+  droplet_proxy_network:
+    external: true
+    name: droplet_proxy_network
