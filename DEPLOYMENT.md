@@ -40,7 +40,15 @@ No DNS, no TLS cert, no server to provision — `wrangler deploy` creates the Wo
 
 ## Part 2 — Tracking Service (VPS + Docker + Caddy)
 
-Deliberately mirrors `tempo-app`'s own `DEPLOYMENT.md` as closely as possible — same suite, same shape. The one structural difference: a per-repo SSH deploy key (see step 6) rather than reusing one key across repos.
+Deliberately mirrors `tempo-app`'s own `DEPLOYMENT.md` as closely as possible — same suite, same shape. The one structural difference: a per-repo SSH deploy key (see step 5) rather than reusing one key across repos.
+
+Three distinct SSH keypairs end up involved by the end of this section — worth keeping straight, since mixing them up is the single easiest way to get this wrong:
+
+| Keypair | Generated on | Public half goes to | Private half goes to | Purpose |
+|---|---|---|---|---|
+| `pocoapoco_actions_deploy` | your local machine | server's `~/.ssh/authorized_keys` (via `ssh-copy-id`) | GitHub secret `SSH_PRIVATE_KEY` | lets GitHub Actions SSH *into* the server to run the deploy script |
+| `pocoapoco_deploy` | the server | GitHub repo's Deploy keys | stays on the server | lets the server `git pull` *from* GitHub |
+| (Google OAuth credentials) | — | — | — | unrelated — just auth for login, not SSH |
 
 ### Prerequisites
 
@@ -96,22 +104,39 @@ The reverse proxy in front of every app on this droplet (Caddy, Cloudflare Origi
        reverse_proxy tracking-service:3002
    }
    ```
-   `tracking-service` is the network alias `backend/compose.yaml` already joins `droplet_proxy_network` under — no change needed on this repo's side. `3002` must match whatever `PORT` is set to in this repo's server-side `.env` (step 6 below).
+   `tracking-service` is the network alias `backend/compose.yaml` already joins `droplet_proxy_network` under — no change needed on this repo's side. `3002` must match whatever `PORT` is set to in this repo's server-side `.env` (step 7 below).
 3. Push to `droplet-proxy`'s `main` branch (or run its deploy workflow manually) — its own `deploy.yml` copies `compose.yaml`/`Caddyfile`/`Dockerfile` to the server and runs `docker compose up --build --detach`.
 
-### 3. Set up GitHub Actions secrets
+### 3. Create a deploy key for GitHub Actions to reach the server
+
+This is the keypair that lets the GitHub Actions runner SSH *into* your server — opposite direction from step 4 below, and easy to confuse with it since both are called "deploy keys." Generate this one **on your local machine**, not the server:
+
+```bash
+ssh-keygen -t ed25519 -C "pocoapoco-github-actions-deploy" -f ~/.ssh/pocoapoco_actions_deploy -N ""
+ssh-copy-id -i ~/.ssh/pocoapoco_actions_deploy.pub <ssh_username>@<droplet-ip>
+```
+
+`ssh-copy-id` appends the public half to the server's `~/.ssh/authorized_keys` for that user — skip this and the deploy step fails with `ssh: handshake failed: ... no supported methods remain`, since the server has nothing to match the key against.
+
+### 4. Set up GitHub Actions secrets
 
 **Settings → Secrets and variables → Actions → New repository secret**:
 
 | Secret | Value |
 |--------|-------|
 | `SSH_HOST` | The droplet's IP address |
-| `SSH_USERNAME` | `root` (or your deploy user) |
-| `SSH_PRIVATE_KEY` | Contents of the per-repo deploy key's private half (see step 6) |
+| `SSH_USERNAME` | The same `<ssh_username>` used in step 3 |
+| `SSH_PRIVATE_KEY` | Contents of `~/.ssh/pocoapoco_actions_deploy` (the **private** half, from step 3 — not the `pocoapoco_deploy` key from step 5 below) |
+
+```bash
+cat ~/.ssh/pocoapoco_actions_deploy
+```
+
+Paste the whole output, including the `-----BEGIN/END-----` lines.
 
 `GITHUB_TOKEN` (for pushing images to GHCR) is automatic — no secret needed.
 
-### 4. First deploy — give the server read access to this repo
+### 5. First deploy — give the server read access to this repo
 
 **This repo uses a dedicated deploy key, not a key shared across repos** — a key added as a deploy key on one GitHub repo only grants access to that repo, not others, even from the same server. If the server already has a deploy key for `tempo-app`, it will *not* work here.
 
@@ -137,7 +162,7 @@ EOF
 
 (The host alias matters — if `tempo-app` also has a deploy key with its own alias, cloning via a bare `github.com` host would pick whichever key SSH tries first, not necessarily the right one per repo.)
 
-### 5. Clone the repo on the server
+### 6. Clone the repo on the server
 
 ```bash
 cd /opt
@@ -145,7 +170,7 @@ git clone git@github.com-pocoapoco:tzohpilotl/pocoapoco.git pocoapoco
 cd pocoapoco/backend
 ```
 
-### 6. Configure environment variables
+### 7. Configure environment variables
 
 ```bash
 cp .env.example .env
@@ -172,7 +197,7 @@ GOOGLE_CLIENT_SECRET=<from the shared OAuth client>
 GOOGLE_CALLBACK_URL=https://pocoapoco.tzohpilotl.com/auth/google/callback
 ```
 
-### 7. Make the GHCR image pullable
+### 8. Make the GHCR image pullable
 
 GHCR packages are private by default. Either:
 
@@ -184,7 +209,7 @@ GHCR packages are private by default. Either:
 echo "<your-pat>" | docker login ghcr.io -u tzohpilotl --password-stdin
 ```
 
-### 8. First run
+### 9. First run
 
 Wait for the first `Backend Tests` → `Deploy Backend` run to complete (check the **Actions** tab), then:
 
@@ -197,14 +222,14 @@ docker compose exec -T app npm run migration:run:prod
 
 (Ongoing deploys run this migration step automatically — see step 9. It's only manual here because nothing has deployed yet.)
 
-### 9. Verify
+### 10. Verify
 
 ```bash
 curl https://pocoapoco.tzohpilotl.com/projects
 # {"message":"Unauthorized","statusCode":401}  — expected, confirms the server + auth guard are both up
 ```
 
-### 10. Ongoing deployments
+### 11. Ongoing deployments
 
 Push to `main` (touching `backend/**`) → `backend-tests.yml` runs the test suite → on success, `backend-deploy.yml` triggers automatically via `workflow_run`: builds + pushes a `:latest` image to GHCR, then SSHes in and runs:
 
@@ -219,12 +244,12 @@ docker image prune -f
 
 No staging environment for the backend — single environment, matching `tempo-app`.
 
-This `git pull` doesn't reference the deploy key directly — it works because the initial clone in step 5 used the aliased URL (`git@github.com-pocoapoco:...`), which git stored as the `origin` remote in `/opt/pocoapoco/.git/config`. Every subsequent bare `git pull` reuses that stored URL, which makes SSH consult `~/.ssh/config` (step 4) and pick the right per-repo key automatically — no change needed in the workflow YAML itself. Two ways this silently breaks:
+This `git pull` doesn't reference the deploy key directly — it works because the initial clone in step 6 used the aliased URL (`git@github.com-pocoapoco:...`), which git stored as the `origin` remote in `/opt/pocoapoco/.git/config`. Every subsequent bare `git pull` reuses that stored URL, which makes SSH consult `~/.ssh/config` (step 5) and pick the right per-repo key automatically — no change needed in the workflow YAML itself. Two ways this silently breaks:
 
 - The repo gets re-cloned at some point using a bare `git@github.com:...` URL instead of the aliased one — `origin` then points at plain `github.com`, and `git pull` falls back to whichever key SSH tries first (possibly the wrong one, if the server has multiple repos' deploy keys installed).
 - `~/.ssh/config` gets edited or removed on the server — the alias only exists there, not in the repo's own git config, so it doesn't travel with the repo.
 
-### 11. Operations
+### 12. Operations
 
 **View logs:**
 
@@ -262,7 +287,7 @@ docker compose restart app
 docker compose exec -T app npm run migration:run:prod
 ```
 
-### 12. Data backup
+### 13. Data backup
 
 The Postgres database lives in a Docker named volume (`tracking_service_postgres_data`). Back it up with `pg_dump` rather than copying the raw volume (safer under concurrent writes):
 
@@ -282,7 +307,7 @@ Restore:
 cat backups/tracking-service-20261106.sql | docker compose exec -T db psql -U tracking_service tracking_service
 ```
 
-### 13. Destroying / rebuilding
+### 14. Destroying / rebuilding
 
 Remove everything including data:
 
@@ -302,6 +327,6 @@ docker compose down
 
 - TLS is handled by the shared Caddy proxy (`github.com:tzohpilotl/droplet-proxy`), same as `tempo-app`/`loyalty-app-api` — not configured per-app in this repo. It uses Cloudflare Origin CA certs, not Let's Encrypt.
 - `SESSION_SECRET` and `DB_PASSWORD` must be strong random values — never reuse across environments or apps in the suite.
-- The deploy SSH key is per-repo and read-only (step 4) — it can clone this repo and nothing else, even though it lives on the same server as `tempo-app`'s own (differently-scoped) deploy key.
+- The deploy SSH key is per-repo and read-only (step 5) — it can clone this repo and nothing else, even though it lives on the same server as `tempo-app`'s own (differently-scoped) deploy key.
 - Postgres is never exposed outside the `droplet_proxy_network`/default compose network — only the app container is reachable via Caddy.
 - `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are shared with `loyalty-app-web` (same OAuth client, by design — see `DESIGN.org`, Open Questions: Future shared identity across the suite). A Google account authorized for one is technically authorized for both unless per-app restrictions are added later.

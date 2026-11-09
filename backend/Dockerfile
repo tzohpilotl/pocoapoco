@@ -17,6 +17,7 @@ FROM node:20-alpine AS runtime
 RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
 
+COPY --from=builder /app/package*.json ./
 COPY --from=deps    /app/node_modules ./node_modules
 COPY --from=builder /app/dist         ./dist
 
