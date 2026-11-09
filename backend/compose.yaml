@@ -3,6 +3,10 @@
 # pull/up` on the server rather than per-commit tags + scp (see
 # .github/workflows/backend-deploy.yml). Postgres instead of SQLite is the
 # one deliberate divergence (see DESIGN.org, Tech Stack).
+# Explicit project name: otherwise Compose uses the directory name ("backend"),
+# giving generic container names like backend-app-1.
+name: pocoapoco
+
 services:
   app:
     image: 'ghcr.io/${GITHUB_USERNAME}/pocoapoco-tracking-service:latest'
