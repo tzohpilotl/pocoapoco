@@ -22,5 +22,5 @@ COPY --from=deps    /app/node_modules ./node_modules
 COPY --from=builder /app/dist         ./dist
 
 USER app
-EXPOSE 3000
+EXPOSE 3002
 CMD ["node", "dist/main"]
