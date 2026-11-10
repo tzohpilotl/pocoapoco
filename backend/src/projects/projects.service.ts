@@ -16,7 +16,9 @@ export class ProjectsService {
   ) {}
 
   findAllForUser(userId: string): Promise<Project[]> {
-    return this.projects.find({ where: { userId } });
+    // Load the projectStatus relation so each row carries its status name,
+    // not just the id — the list view shows the current status per project.
+    return this.projects.find({ where: { userId }, relations: { projectStatus: true } });
   }
 
   create(userId: string, dto: CreateProjectDto): Promise<Project> {

@@ -27,9 +27,6 @@ when something specific is actually known.
 * Features Overview
 The epics in the roadmap should map to these features.
 
-** TODO Track projects
-Create and list projects being tracked. Delivered by [[*Track projects][Track projects]].
-
 ** TODO Configurable status sets per project
 Select =n= (0 < n <= 5) statuses that apply to a given project, out of the overall status catalog.
 Delivered by [[*Configurable status sets per project][Configurable status sets per project]].
@@ -56,20 +53,18 @@ Configure an alarm on a project that triggers a notification carrying some text.
 :END:
 Sign in with Google; projects belong to the signed-in user. Delivered by [[*User accounts][User accounts]].
 
+** DONE Track projects
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2026-11-09 Mon 22:18]
+:END:
+Create and list projects being tracked. Delivered by [[*Track projects][Track projects]].
+
 
 * Roadmap
 
 Open (TODO) items are listed first, in priority order, highest priority first. Completed (DONE)
 items are kept at the end of the list, in descending order by the date of their last TODO to DONE
 transition, rather than mixed in with what's still open.
-
-** TODO Track projects
-:PROPERTIES:
-:CREATED: [2026-11-05 Wed]
-:END:
-Delivers [[*Track projects][Track projects]]. Basic create/list capability for projects — =name=, =description=, and a
-current status (=projectStatusId=), scoped to the signed-in user (see [[*User accounts][User accounts]]). Foundational
-epic everything else below builds on.
 
 ** TODO Configurable status sets per project
 :PROPERTIES:
@@ -160,6 +155,20 @@ early development as the data model above settles.
 :END:
 Tracking Service runs as a containerized web server (see [[*Tech Stack][Tech Stack]]). Covers building the
 container image and getting it deployed — concrete steps TBD, see [[*Deployment][Deployment]].
+
+** DONE Track projects
+:PROPERTIES:
+:CREATED: [2026-11-05 Wed]
+:END:
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2026-11-09 Mon 22:18]
+:END:
+Delivers [[*Track projects][Track projects]]. Basic create/list capability for projects — =name=, =description=, and a
+current status (=projectStatusId=), scoped to the signed-in user (see [[*User accounts][User accounts]]). Foundational
+epic everything else below builds on. Backend exposes =POST /projects= / =GET /projects= (scoped to
+the signed-in user, the list joining each project's current =Project Status= name) plus
+=GET /project-statuses= for the catalog the create form's status picker reads; the client adds a
+create-project form (name, description, status) alongside the existing list.
 
 * Architecture Overview
 

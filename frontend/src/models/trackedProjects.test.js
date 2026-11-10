@@ -53,4 +53,37 @@ describe("TrackedProjects", () => {
     await expect(TrackedProjects.load()).rejects.toThrow("Invalid projects response");
     expect(TrackedProjects.list).toEqual([]);
   });
+
+  it("creates a project then reloads the list", async () => {
+    const created = { id: "9", name: "New Co", description: "Role", projectStatusId: "s1" };
+    const reloaded = [{ id: "9", name: "New Co", description: "Role", projectStatusId: "s1" }];
+    m.request.mockResolvedValueOnce(created); // POST /projects
+    m.request.mockResolvedValueOnce(reloaded); // GET /projects reload
+
+    await TrackedProjects.create({ name: "New Co", description: "Role", projectStatusId: "s1" });
+
+    expect(m.request).toHaveBeenNthCalledWith(1, {
+      method: "POST",
+      url: "http://localhost:4000/projects",
+      withCredentials: true,
+      body: { name: "New Co", description: "Role", projectStatusId: "s1" },
+    });
+    expect(m.request).toHaveBeenNthCalledWith(2, {
+      method: "GET",
+      url: "http://localhost:4000/projects",
+      withCredentials: true,
+    });
+    expect(TrackedProjects.list).toEqual(reloaded);
+  });
+
+  it("does not reload the list if the create request fails", async () => {
+    m.request.mockRejectedValueOnce(new Error("create failed"));
+
+    await expect(
+      TrackedProjects.create({ name: "New Co", projectStatusId: "s1" }),
+    ).rejects.toThrow("create failed");
+
+    expect(m.request).toHaveBeenCalledTimes(1);
+    expect(TrackedProjects.list).toEqual([]);
+  });
 });

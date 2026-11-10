@@ -1,6 +1,7 @@
 import m from "mithril";
 import Session from "./models/session";
 import TrackedProjects from "./models/trackedProjects";
+import ProjectStatuses from "./models/projectStatuses";
 
 // Google's branded "G" mark — same asset tempo-app uses on its login button,
 // so the sign-in affordance reads identically across the suite.
@@ -44,7 +45,131 @@ const LoginView = {
   },
 };
 
+// Create-project form (name, description, status) — a closure component so
+// each open/close cycle starts with fresh local field state. POSTs via
+// TrackedProjects.create(), which reloads the list on success, then calls
+// ondone() to collapse the form.
+function NewProjectForm() {
+  let name = "";
+  let description = "";
+  let projectStatusId = "";
+  let submitting = false;
+  let error = null;
+
+  function reset() {
+    name = "";
+    description = "";
+    projectStatusId = "";
+    submitting = false;
+    error = null;
+  }
+
+  const canSubmit = () => name.trim() !== "" && projectStatusId !== "" && !submitting;
+
+  return {
+    view(vnode) {
+      const { ondone, oncancel } = vnode.attrs;
+      return m(
+        "form",
+        {
+          class: "newProject card",
+          onsubmit(e) {
+            e.preventDefault();
+            if (!canSubmit()) return;
+            submitting = true;
+            error = null;
+            TrackedProjects.create({
+              name: name.trim(),
+              description: description.trim() || undefined,
+              projectStatusId,
+            })
+              .then(() => {
+                reset();
+                ondone();
+              })
+              .catch(() => {
+                submitting = false;
+                error = "Couldn't create the project. Please try again.";
+                m.redraw();
+              });
+          },
+        },
+        [
+          m("div", { class: "field" }, [
+            m("label", { class: "fieldLabel", for: "np-name" }, "Name"),
+            m("input", {
+              id: "np-name",
+              class: "input",
+              type: "text",
+              value: name,
+              placeholder: "e.g. Acme Corp — Backend Engineer",
+              oninput: (e) => {
+                name = e.target.value;
+              },
+            }),
+          ]),
+          m("div", { class: "field" }, [
+            m("label", { class: "fieldLabel", for: "np-desc" }, "Description"),
+            m("input", {
+              id: "np-desc",
+              class: "input",
+              type: "text",
+              value: description,
+              placeholder: "optional",
+              oninput: (e) => {
+                description = e.target.value;
+              },
+            }),
+          ]),
+          m("div", { class: "field" }, [
+            m("label", { class: "fieldLabel", for: "np-status" }, "Status"),
+            m(
+              "select",
+              {
+                id: "np-status",
+                class: "input",
+                value: projectStatusId,
+                onchange: (e) => {
+                  projectStatusId = e.target.value;
+                },
+              },
+              [
+                m("option", { value: "", disabled: true }, "Select a status…"),
+                ProjectStatuses.list.map((status) =>
+                  m("option", { value: status.id, key: status.id }, status.name)
+                ),
+              ]
+            ),
+          ]),
+          error ? m("p", { class: "formError" }, error) : null,
+          m("div", { class: "formActions" }, [
+            m(
+              "button",
+              { type: "submit", class: "btn btn-primary", disabled: !canSubmit() },
+              submitting ? "Adding…" : "Track project"
+            ),
+            m(
+              "button",
+              {
+                type: "button",
+                class: "btn btn-secondary",
+                onclick() {
+                  reset();
+                  oncancel();
+                },
+              },
+              "Cancel"
+            ),
+          ]),
+        ]
+      );
+    },
+  };
+}
+
 const AppView = {
+  creating: false,
+
   view() {
     return [
       m("div", { class: "topBar" }, [
@@ -60,7 +185,30 @@ const AppView = {
         m("div", { class: "header" }, [
           m("h1", { class: "title" }, "Projects"),
           m("span", { class: "count" }, TrackedProjects.list.length),
+          m("span", { class: "spacer" }),
+          AppView.creating
+            ? null
+            : m(
+                "button",
+                {
+                  class: "btn btn-primary",
+                  onclick() {
+                    AppView.creating = true;
+                  },
+                },
+                "+ New project"
+              ),
         ]),
+        AppView.creating
+          ? m(NewProjectForm, {
+              ondone() {
+                AppView.creating = false;
+              },
+              oncancel() {
+                AppView.creating = false;
+              },
+            })
+          : null,
         TrackedProjects.list.length === 0
           ? m("div", { class: "empty" }, "nothing tracked yet")
           : m(
@@ -70,8 +218,13 @@ const AppView = {
                 m("li", { class: "surface-row", key: project.id }, [
                   m("div", { class: "cardMain" }, [
                     m("span", { class: "projectName" }, project.name),
+                    project.description
+                      ? m("span", { class: "projectDesc" }, project.description)
+                      : null,
                   ]),
-                  m("span", { class: "pill pill-accent" }, project.description),
+                  project.projectStatus
+                    ? m("span", { class: "pill pill-accent" }, project.projectStatus.name)
+                    : null,
                 ])
               )
             ),
@@ -89,7 +242,7 @@ const App = {
     Session.load()
       .then(() => {
         if (Session.isAuthenticated) {
-          return TrackedProjects.load();
+          return Promise.all([TrackedProjects.load(), ProjectStatuses.load()]);
         }
       })
       .finally(() => {

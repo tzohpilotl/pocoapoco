@@ -37,7 +37,10 @@ describe("ProjectsService", () => {
 
     await service.findAllForUser("user-1");
 
-    expect(projects.find).toHaveBeenCalledWith({ where: { userId: "user-1" } });
+    expect(projects.find).toHaveBeenCalledWith({
+      where: { userId: "user-1" },
+      relations: { projectStatus: true },
+    });
   });
 
   it("creates a project owned by the given user", async () => {

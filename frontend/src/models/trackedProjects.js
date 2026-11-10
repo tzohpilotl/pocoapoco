@@ -23,6 +23,20 @@ const TrackedProjects = {
         TrackedProjects.list = response;
       });
   },
+
+  // Create a project, then reload the list so the new row (with its joined
+  // status) is reflected — the POST response isn't trusted as the source of
+  // truth for the list; load() re-validates the full set.
+  create({ name, description, projectStatusId }) {
+    return m
+      .request({
+        method: "POST",
+        url: `${API_BASE_URL}/projects`,
+        withCredentials: true,
+        body: { name, description, projectStatusId },
+      })
+      .then(() => TrackedProjects.load());
+  },
 };
 
 export default TrackedProjects;

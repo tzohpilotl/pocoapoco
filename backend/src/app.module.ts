@@ -8,6 +8,7 @@ import { ProjectStatusConfiguration } from "./entities/project-status-configurat
 import { ProjectStatusLog } from "./entities/project-status-log.entity";
 import { User } from "./entities/user.entity";
 import { ProjectsModule } from "./projects/projects.module";
+import { ProjectStatusesModule } from "./project-statuses/project-statuses.module";
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { ProjectsModule } from "./projects/projects.module";
     }),
     AuthModule,
     ProjectsModule,
+    ProjectStatusesModule,
   ],
 })
 export class AppModule {}
