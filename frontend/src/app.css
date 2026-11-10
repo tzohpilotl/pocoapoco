@@ -18,6 +18,36 @@ html, body, #app {
   padding: 1.25rem 4rem 0;
 }
 
+.spacer {
+  flex: 1;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.accountEmail {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.linkButton {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.linkButton:hover {
+  color: var(--accent-dim);
+}
+
 .logoMark {
   font-size: 1.2rem;
   color: var(--accent);
@@ -88,6 +118,106 @@ html, body, #app {
   padding: 3rem 1rem;
   color: var(--text-faint);
   font-size: 0.875rem;
+}
+
+/*
+ * Signed-out login view. Ported from tempo-app's LoginPage.module.css (same
+ * tempo-theme tokens) so the sign-in experience is identical across the suite
+ * — only the prefixed class names differ, since this app uses plain global
+ * CSS rather than CSS Modules.
+ */
+.loginRoot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 2rem;
+  overflow: hidden;
+}
+
+.loginGrid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.5;
+}
+
+.loginOrb {
+  position: absolute;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.loginCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 380px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 2rem;
+  box-shadow: 0 8px 40px rgba(28, 24, 14, 0.12);
+}
+
+.loginLogo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.loginLogoMark {
+  font-size: 1.5rem;
+  color: var(--accent);
+}
+
+.loginLogoText {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.loginTagline {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.loginGoogleBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.75rem 1.25rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(28, 24, 14, 0.10);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.loginGoogleBtn:hover {
+  background: #fff;
+  box-shadow: 0 3px 10px rgba(28, 24, 14, 0.14);
+}
+
+.loginFine {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  text-align: center;
 }
 
 @media (max-width: 640px) {

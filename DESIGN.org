@@ -50,7 +50,10 @@ reselecting its statuses from scratch. Delivered by [[*Project templates][Projec
 Configure an alarm on a project that triggers a notification carrying some text. Delivered by
 [[*Alarms and notifications][Alarms and notifications]].
 
-** TODO User accounts
+** DONE User accounts
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2026-11-09 Mon 19:29]
+:END:
 Sign in with Google; projects belong to the signed-in user. Delivered by [[*User accounts][User accounts]].
 
 
@@ -59,17 +62,6 @@ Sign in with Google; projects belong to the signed-in user. Delivered by [[*User
 Open (TODO) items are listed first, in priority order, highest priority first. Completed (DONE)
 items are kept at the end of the list, in descending order by the date of their last TODO to DONE
 transition, rather than mixed in with what's still open.
-
-** TODO User accounts
-:PROPERTIES:
-:CREATED: [2026-11-05 Wed]
-:END:
-Delivers [[*User accounts][User accounts]]. Sign in with Google (Passport + =passport-google-oauth20=, session-based —
-same approach as =tempo-app=, see [[*Tech Stack][Tech Stack]]), and every =Project= belongs to the signed-in
-=User= (see [[*Data Model][Data Model]]). This is foundational, same as [[*Track projects][Track projects]] below — projects can't be
-scoped to a user until this exists. Identity is keyed on the Google account (not an app-local
-username/password) since pocoapoco-app, =tempo-app=, and the loyalty app belong to one suite that
-may eventually share user identity — see [[*Future shared identity across the suite][Future shared identity across the suite]].
 
 ** TODO Track projects
 :PROPERTIES:
@@ -116,21 +108,6 @@ on a schedule (e.g. once a morning) that reads due alarms straight from Tracking
 the client directly — deliberately bypassing Tracking Service on both sides. The actual delivery
 channel (push/email/in-app/other) is still open — see [[*Open Questions][Open Questions]].
 
-** TODO Set up Postgres with a migration-based workflow                :infra:
-:PROPERTIES:
-:CREATED: [2026-11-05 Wed]
-:END:
-Tracking DB is Postgres (see [[*Tech Stack][Tech Stack]]), with schema changes going through a migration tool
-from day one rather than hand-editing the schema — the project expects real schema churn during
-early development as the data model above settles.
-
-** TODO Containerize and deploy the Tracking Service                   :infra:
-:PROPERTIES:
-:CREATED: [2026-11-05 Wed]
-:END:
-Tracking Service runs as a containerized web server (see [[*Tech Stack][Tech Stack]]). Covers building the
-container image and getting it deployed — concrete steps TBD, see [[*Deployment][Deployment]].
-
 ** TODO Set up scheduled-job infrastructure for the Notification Service :infra:
 :PROPERTIES:
 :CREATED: [2026-11-05 Wed]
@@ -139,6 +116,50 @@ Delivers the infra side of [[*Alarms and notifications][Alarms and notifications
 job (cron-like, e.g. once a morning) rather than a long-running request-serving process — needs a
 deploy target that supports scheduled tasks, separate from (but able to reach) Tracking DB.
 
+
+** DONE User accounts
+:PROPERTIES:
+:CREATED: [2026-11-05 Wed]
+:END:
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2026-11-09 Mon 19:29]
+:END:
+Delivers [[*User accounts][User accounts]]. Sign in with Google (Passport + =passport-google-oauth20=, session-based —
+same approach as =tempo-app=, see [[*Tech Stack][Tech Stack]]), and every =Project= belongs to the signed-in
+=User= (see [[*Data Model][Data Model]]). This is foundational, same as [[*Track projects][Track projects]] — projects can't be
+scoped to a user until this exists. Identity is keyed on the Google account (not an app-local
+username/password) since pocoapoco-app, =tempo-app=, and the loyalty app belong to one suite that
+may eventually share user identity — see [[*Future shared identity across the suite][Future shared identity across the suite]].
+
+The client surfaces this as a dedicated full-screen sign-in view (ambient grid, glow orb, centered
+card, branded "Continue with Google" button) deliberately mirroring =tempo-app='s =LoginPage=, so
+the sign-in experience is coherent across the suite — both apps already share the same =tempo-theme=
+submodule, so the view reuses the same tokens and only differs in that this app uses plain global
+CSS rather than CSS Modules. The backend exposes =GET /auth/me= for the client to resolve auth state
+(the session cookie is HttpOnly), and CORS/cross-site cookie settings (=SameSite=None; Secure=
+behind the proxy) are gated on =NODE_ENV=production= so the Cloudflare-hosted client and this service
+can share a session across origins.
+
+** DONE Set up Postgres with a migration-based workflow               :infra:
+:PROPERTIES:
+:CREATED: [2026-11-05 Wed]
+:END:
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2026-11-09 Mon 21:13]
+:END:
+Tracking DB is Postgres (see [[*Tech Stack][Tech Stack]]), with schema changes going through a migration tool
+from day one rather than hand-editing the schema — the project expects real schema churn during
+early development as the data model above settles.
+
+** DONE Containerize and deploy the Tracking Service                  :infra:
+:PROPERTIES:
+:CREATED: [2026-11-05 Wed]
+:END:
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2026-11-09 Mon 21:13]
+:END:
+Tracking Service runs as a containerized web server (see [[*Tech Stack][Tech Stack]]). Covers building the
+container image and getting it deployed — concrete steps TBD, see [[*Deployment][Deployment]].
 
 * Architecture Overview
 
@@ -271,15 +292,16 @@ secrets — see [[*Environment variables][Environment variables]] below), then
 =cloudflare/wrangler-action@v3= to publish. Modeled on the =loyalty-app-web= repo's deploy setup,
 adapted for this repo's =frontend/= subdirectory layout and esbuild (rather than Vite) build.
 
-Not yet set up: the actual Cloudflare account/API token, repo secrets, and pushing this repo to
-GitHub — these block the pipeline from running for real, independent of the config being correct.
+The Client is deployed and running live in production on Cloudflare: the Cloudflare account/API
+token, repo secrets, and GitHub remote are all in place, and the pipeline publishes on push to
+=main=.
 
 *** Environment variables
 =API_BASE_URL= is injected at build time (see [[*Tech Stack][Tech Stack]] — =frontend/scripts/build.mjs= loads it
 via =dotenv= from =.env.development=/=.env.production= locally, or from a real =API_BASE_URL=
 environment variable in CI, which takes precedence over the =.env= file). =.env.production='s
-value is currently a placeholder — see [[*Hosting target][Hosting target]] below, since the Tracking Service isn't
-deployed anywhere yet.
+=API_BASE_URL= now points at the live deployed Tracking Service (it was a placeholder until the
+Tracking Service was deployed — see [[*Hosting target][Hosting target]] below, now resolved).
 
 ** Tracking Service / Tracking DB
 Deploy mechanism is prepared, deliberately matching =tempo-app='s shape as closely as possible
@@ -287,9 +309,9 @@ Deploy mechanism is prepared, deliberately matching =tempo-app='s shape as close
 rather than per-commit tags + file copying, decoupled test-then-deploy via =workflow_run=) since
 both belong to the same suite — see [[*Future shared identity across the suite][Future shared identity across the suite]]. Postgres instead of
 SQLite (plus the migration step that requires) is the one deliberate divergence; see [[*Tech Stack][Tech Stack]].
-*The actual server is not provisioned yet*, so none of this can run for real — see [[*Hosting
-target][Hosting target]] in Open Questions; the client's =API_BASE_URL= can't be set to anything
-real until that's resolved.
+The Tracking Service and Tracking DB are *deployed and running live* on their deploy target (the
+shared droplet behind Caddy, per =backend/compose.yaml= below), via the pipeline described here;
+the client's =API_BASE_URL= points at this live service.
 
 =backend/compose.yaml= defines an =app= + =db= (Postgres) pair, joining the shared external
 =droplet_proxy_network= — same external-network pattern =tempo-app= and =loyalty-app-api= already
@@ -339,9 +361,21 @@ Not yet written — no hosting target chosen (see [[*Hosting target][Hosting tar
 - *Client specificity.* Settled as an installable PWA (Mithril SPA) — see [[*Tech Stack][Tech Stack]]. Dedicated
   native mobile/desktop clients are not planned; the installable PWA is the mobile delivery
   mechanism.
-- *Hosting target.* Settled for the Client: Cloudflare Workers Static Assets (see [[*Deployment][Deployment]]).
-  Still open for Tracking Service, Tracking DB, and Notification Service — nothing chosen yet, which
-  also blocks the Client's =API_BASE_URL= from pointing at anything real in production.
+- *Hosting target.* Resolved for the Client (Cloudflare Workers Static Assets), the Tracking
+  Service, and the Tracking DB — all deployed and running live in production (see [[*Deployment][Deployment]]), with
+  the Client's =API_BASE_URL= pointed at the live Tracking Service. Still open only for the
+  Notification Service, which isn't built yet.
+- *Cross-origin vs. same-origin Client/Service.* Current design is deliberately cross-origin in prod:
+  the Client is static assets on Cloudflare while the Tracking Service is on a separate host, so the
+  Client calls an absolute =API_BASE_URL= and auth relies on CORS plus cross-site session cookies
+  (=SameSite=None; Secure=). =tempo-app= instead is same-origin (one host serves the SPA and proxies
+  =/api= to the backend), which lets it use =SameSite=lax= and no CORS. pocoapoco could move to the
+  same model by having the Cloudflare Worker proxy =/api/*= through to the Tracking Service (the
+  Client would then use a relative =/api= base) — but that abandons the "static assets, no server"
+  property of the current Client deploy. Not pursued now; flagged so the trade-off is a conscious
+  choice if the cross-site-cookie handling (esp. Safari/PWA) proves troublesome. Note this is a
+  prod-only question: local dev already runs the real Tracking Service (see
+  [[file:frontend/README.org][frontend/README.org]], "Running in development"), cross-origin, which matches prod.
 - *Future shared identity across the suite.* pocoapoco-app, =tempo-app=, and the loyalty app belong
   to one suite (same owner) that may eventually share user accounts rather than each having fully
   independent ones. Not being built now, but it shapes the =User= entity above: =googleId= (the

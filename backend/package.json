@@ -9,6 +9,7 @@
     "start": "node dist/main",
     "test": "jest",
     "test:watch": "jest --watch",
+    "seed": "ts-node src/seed.ts",
     "typeorm": "typeorm-ts-node-commonjs -d src/data-source.ts",
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:run": "npm run typeorm -- migration:run",

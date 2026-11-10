@@ -17,13 +17,39 @@ git submodule update --remote frontend/theme
 
 * Running in development
 
+By default =npm run dev= points the SPA at the *real* Tracking Service running locally, so dev
+exercises the same backend code, session auth, and Postgres schema as production (the only
+difference from prod is cross-origin vs. same-origin — see DESIGN.org, Deployment). From
+=../backend=:
+
 #+BEGIN_SRC sh
-npm run mock-api   # json-server on http://localhost:4000, seeded from mock/db.json
-npm run dev        # esbuild dev server on http://localhost:5174, rebuilds on save
+docker compose -f compose.dev.yaml up -d   # Postgres on :5432
+npm run migration:run                      # create the schema
+npm run seed                               # insert the Project Status catalog
+npm run dev                                # NestJS Tracking Service on http://localhost:3002
 #+END_SRC
 
-Open http://localhost:5174/ in a browser. There is no real Tracking Service yet (see
-DESIGN.org), so =npm run mock-api= stands in for it against the shapes in [[*Data Model][Data Model]].
+Then from here:
+
+#+BEGIN_SRC sh
+npm run dev   # esbuild dev server on http://localhost:5174, rebuilds on save
+#+END_SRC
+
+Open http://localhost:5174/ — you'll land on the sign-in screen. Real Google OAuth needs
+credentials configured (see =../backend/.env.example=); to skip that locally, visit
+http://localhost:3002/auth/test-login once to mint a dev session (a dev/test-only bypass,
+404 in production), then reload the SPA.
+
+** Mock API fallback
+
+For quick UI work without the backend, the old json-server mock still exists. Point
+=.env.development='s =API_BASE_URL= at =http://localhost:4000= and run:
+
+#+BEGIN_SRC sh
+npm run mock-api   # json-server on http://localhost:4000, seeded from mock/db.json
+#+END_SRC
+
+Note the mock has no =/auth/me=, so the SPA stays on the sign-in screen against it.
 
 * Environment variables
 
@@ -31,10 +57,10 @@ Endpoints are configured via =.env.<mode>= files, loaded by =scripts/build.mjs= 
 into the bundle at build time (via esbuild's =define=, so there is no =process.env= at runtime
 in the browser — references are replaced with literal values during the build).
 
-| File              | Used by      | =API_BASE_URL=                                  |
-|-------------------+---------------+--------------------------------------------------|
-| =.env.development= | =npm run dev=  | =http://localhost:4000= (the json-server mock)    |
-| =.env.production=  | =npm run build= | placeholder — no hosting target chosen yet       |
+| File              | Used by      | =API_BASE_URL=                                   |
+|-------------------+---------------+---------------------------------------------------|
+| =.env.development= | =npm run dev=  | =http://localhost:3002= (the local Tracking Service) |
+| =.env.production=  | =npm run build= | placeholder — no hosting target chosen yet        |
 
 =.env.production='s =API_BASE_URL= is a placeholder until the Tracking Service has a real
 deployed URL (see DESIGN.org, Open Questions: "Hosting target"). Update it then.
@@ -53,4 +79,6 @@ npm run build   # outputs dist/app.js, minified, using .env.production
 Chosen to avoid colliding with other local projects' dev servers:
 
 - =5174= — this app's esbuild dev server (not =5173=, used by =tempo-app=).
-- =4000= — the json-server mock (not =3001=, used by another local project).
+- =3002= — the local Tracking Service (NestJS); see =../backend=.
+- =5432= — local Postgres (=backend/compose.dev.yaml=).
+- =4000= — the json-server mock fallback (not =3001=, used by another local project).

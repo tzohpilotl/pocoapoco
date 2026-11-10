@@ -27,6 +27,7 @@ describe("TrackedProjects", () => {
     expect(m.request).toHaveBeenCalledWith({
       method: "GET",
       url: "http://localhost:4000/projects",
+      withCredentials: true,
     });
     expect(TrackedProjects.list).toEqual(projects);
   });

@@ -15,7 +15,7 @@ const TrackedProjects = {
 
   load() {
     return m
-      .request({ method: "GET", url: `${API_BASE_URL}/projects` })
+      .request({ method: "GET", url: `${API_BASE_URL}/projects`, withCredentials: true })
       .then((response) => {
         if (!Array.isArray(response) || !response.every(isValidProject)) {
           throw new Error("Invalid projects response from API");
